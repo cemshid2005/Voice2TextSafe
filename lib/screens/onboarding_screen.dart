@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/ai_provider.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/api_key_field.dart';
+import '../widgets/api_key_help_button.dart';
 import '../widgets/provider_selector.dart';
 import 'home_screen.dart';
 
@@ -79,7 +80,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onChanged: (provider) => setState(() => _selectedProvider = provider),
               ),
               const SizedBox(height: 24),
-              Text('API Key', style: Theme.of(context).textTheme.titleMedium),
+              Row(
+                children: [
+                  Text('API Key', style: Theme.of(context).textTheme.titleMedium),
+                  const Spacer(),
+                  ApiKeyHelpButton(provider: _selectedProvider),
+                ],
+              ),
               const SizedBox(height: 8),
               ApiKeyField(controller: _apiKeyController),
               if (_error != null) ...[

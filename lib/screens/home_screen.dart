@@ -52,7 +52,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final transcriptionProvider = context.read<TranscriptionProvider>();
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ResultScreen()));
+    final navigator = Navigator.of(context);
+    // Never stack multiple ResultScreens: a new share always cleanly
+    // replaces whatever was showing before (see TranscriptionProvider's
+    // request-id guard for why this is safe even mid-transcription).
+    navigator.popUntil((route) => route.isFirst);
+    navigator.push(MaterialPageRoute(builder: (_) => const ResultScreen()));
     await transcriptionProvider.transcribe(
       audioFile: file,
       provider: settings.selectedProvider,
@@ -96,22 +101,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'WhatsApp və digər tətbiqlərdən audio mesajı paylaşarkən '
-                '"Voice2TextSafe" seçin',
+                'Audio və ya səsli mesajın mətnə çevrilməsi üçün onu WhatsApp və ya digər tətbiqdən paylaşaraq "Voice2TextSafe" seçin. Proqram audio faylı seçdiyiniz süni intellekt provayderi ilə məxfi şəkildə analiz edib mətnə çevirəcək.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
               Text(
-                'Aktiv provayder: ${settings.selectedProvider.displayName}',
+                'Hazırda istifadə olunan provayder: ${settings.selectedProvider.displayName}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 32),
               Text(
-                'Audio serverdə saxlanılmır. Bütün proses cihazınızda, birbaşa '
-                'seçdiyiniz AI provayderi ilə aparılır.',
+                'Audio fayllar heç yerə göndərilmir və serverdə saxlanılmır. Bütün transkripsiya prosesi yalnız cihazınızda baş tutur və birbaşa seçdiyiniz AI provayderi ilə işlənir.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
+           
               ),
             ],
           ),

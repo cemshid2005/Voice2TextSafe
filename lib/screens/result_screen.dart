@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/summary_type.dart';
 import '../models/transcription_result.dart';
 import '../models/translation_language.dart';
 import '../providers/settings_provider.dart';
 import '../providers/transcription_provider.dart';
 import '../widgets/language_chip.dart';
+import '../widgets/summary_type_chip.dart';
 
 class ResultScreen extends StatelessWidget {
   const ResultScreen({super.key});
@@ -45,9 +47,22 @@ class ResultScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _summarize(BuildContext context, SummaryType type) async {
+    final settings = context.read<SettingsProvider>();
+    final transcription = context.read<TranscriptionProvider>();
+    final apiKey = await settings.getApiKey();
+    if (apiKey == null || apiKey.isEmpty) return;
+    await transcription.summarize(
+      type: type,
+      provider: settings.selectedProvider,
+      apiKey: apiKey,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final transcription = context.watch<TranscriptionProvider>();
+    final settings = context.watch<SettingsProvider>();
     final status = transcription.status;
     final result = transcription.result;
 
@@ -68,12 +83,16 @@ class ResultScreen extends StatelessWidget {
               ),
             TranscriptionStatus.success when result != null => _ResultView(
                 result: result,
-                isTranslating: transcription.isTranslating,
-                translatingLanguage: transcription.translatingLanguage,
+                enabledLanguages: TranslationLanguage.values
+                    .where(settings.enabledTranslationLanguages.contains)
+                    .toList(),
+                translatingLanguages: transcription.translatingLanguages,
+                summarizingTypes: transcription.summarizingTypes,
                 onCopy: (text) => _copy(context, text),
                 onShare: _share,
                 onRetranscribe: () => _retranscribe(context),
                 onTranslate: (language) => _translate(context, language),
+                onSummarize: (type) => _summarize(context, type),
               ),
             _ => const _LoadingView(),
           },
@@ -134,21 +153,25 @@ class _ErrorView extends StatelessWidget {
 class _ResultView extends StatelessWidget {
   const _ResultView({
     required this.result,
-    required this.isTranslating,
-    required this.translatingLanguage,
+    required this.enabledLanguages,
+    required this.translatingLanguages,
+    required this.summarizingTypes,
     required this.onCopy,
     required this.onShare,
     required this.onRetranscribe,
     required this.onTranslate,
+    required this.onSummarize,
   });
 
   final TranscriptionResult result;
-  final bool isTranslating;
-  final TranslationLanguage? translatingLanguage;
+  final List<TranslationLanguage> enabledLanguages;
+  final Set<TranslationLanguage> translatingLanguages;
+  final Set<SummaryType> summarizingTypes;
   final ValueChanged<String> onCopy;
   final ValueChanged<String> onShare;
   final VoidCallback onRetranscribe;
   final ValueChanged<TranslationLanguage> onTranslate;
+  final ValueChanged<SummaryType> onSummarize;
 
   @override
   Widget build(BuildContext context) {
@@ -191,15 +214,40 @@ class _ResultView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
+        Text('Xülasə', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: SummaryType.values.map((type) {
+            return SummaryTypeChip(
+              type: type,
+              loading: summarizingTypes.contains(type),
+              onPressed: () => onSummarize(type),
+            );
+          }).toList(),
+        ),
+        if (result.summaries.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...result.summaries.entries.map((entry) {
+            return _ResultCard(
+              title: entry.key.label,
+              text: entry.value,
+              onCopy: () => onCopy(entry.value),
+              onShare: () => onShare(entry.value),
+            );
+          }),
+        ],
+        const SizedBox(height: 24),
         Text('Tərcümə et', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: TranslationLanguage.values.map((language) {
+          children: enabledLanguages.map((language) {
             return LanguageChip(
               language: language,
-              loading: isTranslating && translatingLanguage == language,
+              loading: translatingLanguages.contains(language),
               onPressed: () => onTranslate(language),
             );
           }).toList(),
@@ -207,44 +255,68 @@ class _ResultView extends StatelessWidget {
         if (result.translations.isNotEmpty) ...[
           const SizedBox(height: 16),
           ...result.translations.entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(entry.key.nativeName, style: Theme.of(context).textTheme.titleSmall),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.copy_outlined, size: 18),
-                                tooltip: 'Copy',
-                                onPressed: () => onCopy(entry.value),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.share_outlined, size: 18),
-                                tooltip: 'Share',
-                                onPressed: () => onShare(entry.value),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SelectableText(entry.value),
-                    ],
-                  ),
-                ),
-              ),
+            return _ResultCard(
+              title: entry.key.nativeName,
+              text: entry.value,
+              onCopy: () => onCopy(entry.value),
+              onShare: () => onShare(entry.value),
             );
           }),
         ],
       ],
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  const _ResultCard({
+    required this.title,
+    required this.text,
+    required this.onCopy,
+    required this.onShare,
+  });
+
+  final String title;
+  final String text;
+  final VoidCallback onCopy;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleSmall),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.copy_outlined, size: 18),
+                        tooltip: 'Copy',
+                        onPressed: onCopy,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.share_outlined, size: 18),
+                        tooltip: 'Share',
+                        onPressed: onShare,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              SelectableText(text),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

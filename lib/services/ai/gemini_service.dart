@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../core/constants.dart';
+import '../../models/summary_type.dart';
 import '../../models/translation_language.dart';
 import '../../utils/error_mapper.dart';
 import 'ai_service.dart';
@@ -67,16 +68,30 @@ class GeminiService implements AiService {
 
   @override
   Future<String> translate(String text, TranslationLanguage targetLanguage) async {
+    return _generateText(
+      prompt: 'Translate the following text to ${targetLanguage.promptName}. '
+          'Preserve meaning and tone. Return only the translated text, '
+          'with no extra commentary:\n\n$text',
+      emptyMessage: 'Tərcümə boş qayıtdı.',
+    );
+  }
+
+  @override
+  Future<String> summarize(String text, SummaryType type) async {
+    return _generateText(
+      prompt: '${type.promptInstruction} Respond in the same language as the '
+          'source text - do not translate it. Return only the summary, with '
+          'no extra commentary:\n\n$text',
+      emptyMessage: 'Xülasə boş qayıtdı.',
+    );
+  }
+
+  Future<String> _generateText({required String prompt, required String emptyMessage}) async {
     final body = jsonEncode({
       'contents': [
         {
           'parts': [
-            {
-              'text':
-                  'Translate the following text to ${targetLanguage.promptName}. '
-                  'Preserve meaning and tone. Return only the translated text, '
-                  'with no extra commentary:\n\n$text',
-            },
+            {'text': prompt},
           ],
         },
       ],
@@ -94,7 +109,7 @@ class GeminiService implements AiService {
     if (response.statusCode != 200) {
       throw ErrorMapper.fromStatusCode(response.statusCode);
     }
-    return _extractText(response.body, emptyMessage: 'Tərcümə boş qayıtdı.');
+    return _extractText(response.body, emptyMessage: emptyMessage);
   }
 
   String _extractText(String responseBody, {required String emptyMessage}) {

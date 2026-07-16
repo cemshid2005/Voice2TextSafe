@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../models/summary_type.dart';
 import '../../models/translation_language.dart';
 
 /// Common interface implemented by each AI provider. Implementations talk
@@ -12,4 +13,8 @@ abstract class AiService {
   /// Translates [text] into [targetLanguage]. Never mutates the original
   /// transcript - callers are expected to keep both around.
   Future<String> translate(String text, TranslationLanguage targetLanguage);
+
+  /// Summarizes [text] according to [type], in the same language as [text].
+  /// Never mutates the original transcript.
+  Future<String> summarize(String text, SummaryType type);
 }

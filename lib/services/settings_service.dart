@@ -10,6 +10,7 @@ class SettingsService {
   static const _kProvider = 'selected_provider';
   static const _kDefaultTranslationLanguage = 'default_translation_language';
   static const _kThemeMode = 'theme_mode';
+  static const _kEnabledTranslationLanguages = 'enabled_translation_languages';
 
   Future<AiProvider> readProvider() async {
     final prefs = await SharedPreferences.getInstance();
@@ -34,6 +35,22 @@ class SettingsService {
     } else {
       await prefs.setString(_kDefaultTranslationLanguage, language.code);
     }
+  }
+
+  Future<Set<TranslationLanguage>> readEnabledTranslationLanguages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList(_kEnabledTranslationLanguages);
+    if (stored == null) return TranslationLanguage.defaultEnabled;
+    final languages = stored.map(TranslationLanguage.fromCode).whereType<TranslationLanguage>().toSet();
+    return languages.isEmpty ? TranslationLanguage.defaultEnabled : languages;
+  }
+
+  Future<void> writeEnabledTranslationLanguages(Set<TranslationLanguage> languages) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _kEnabledTranslationLanguages,
+      languages.map((language) => language.code).toList(),
+    );
   }
 
   Future<ThemeMode> readThemeMode() async {

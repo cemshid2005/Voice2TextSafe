@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/translation_language.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/api_key_field.dart';
+import '../widgets/api_key_help_button.dart';
 import '../widgets/provider_selector.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -60,7 +61,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (provider) => settings.setProvider(provider),
             ),
             const SizedBox(height: 24),
-            Text('API Key', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Text('API Key', style: Theme.of(context).textTheme.titleMedium),
+                const Spacer(),
+                ApiKeyHelpButton(provider: settings.selectedProvider),
+              ],
+            ),
             const SizedBox(height: 4),
             Text(
               settings.hasApiKeyForSelectedProvider
@@ -89,6 +96,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const Divider(height: 32),
+            Text('Tərcümə dilləri', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Nəticə ekranında sürətli tərcümə düymələri kimi göstərilsin.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: TranslationLanguage.values.map((language) {
+                final enabled = settings.enabledTranslationLanguages.contains(language);
+                return FilterChip(
+                  label: Text(language.nativeName),
+                  selected: enabled,
+                  onSelected: (value) => settings.setLanguageEnabled(language, value),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
             Text('Default tərcümə dili', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
@@ -104,7 +131,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   selected: settings.defaultTranslationLanguage == null,
                   onSelected: (_) => settings.setDefaultTranslationLanguage(null),
                 ),
-                ...TranslationLanguage.values.map((language) {
+                ...TranslationLanguage.values
+                    .where(settings.enabledTranslationLanguages.contains)
+                    .map((language) {
                   return ChoiceChip(
                     label: Text(language.nativeName),
                     selected: settings.defaultTranslationLanguage == language,

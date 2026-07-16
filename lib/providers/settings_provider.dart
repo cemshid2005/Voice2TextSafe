@@ -20,12 +20,14 @@ class SettingsProvider extends ChangeNotifier {
   AiProvider _selectedProvider = AiProvider.openai;
   ThemeMode _themeMode = ThemeMode.system;
   TranslationLanguage? _defaultTranslationLanguage;
+  Set<TranslationLanguage> _enabledTranslationLanguages = TranslationLanguage.defaultEnabled;
   bool _hasApiKeyForSelectedProvider = false;
   bool _initialized = false;
 
   AiProvider get selectedProvider => _selectedProvider;
   ThemeMode get themeMode => _themeMode;
   TranslationLanguage? get defaultTranslationLanguage => _defaultTranslationLanguage;
+  Set<TranslationLanguage> get enabledTranslationLanguages => _enabledTranslationLanguages;
   bool get hasApiKeyForSelectedProvider => _hasApiKeyForSelectedProvider;
   bool get initialized => _initialized;
 
@@ -34,6 +36,7 @@ class SettingsProvider extends ChangeNotifier {
     _selectedProvider = await _settingsService.readProvider();
     _themeMode = await _settingsService.readThemeMode();
     _defaultTranslationLanguage = await _settingsService.readDefaultTranslationLanguage();
+    _enabledTranslationLanguages = await _settingsService.readEnabledTranslationLanguages();
     await _refreshHasApiKey();
     _initialized = true;
     notifyListeners();
@@ -79,6 +82,27 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setDefaultTranslationLanguage(TranslationLanguage? language) async {
     _defaultTranslationLanguage = language;
     await _settingsService.writeDefaultTranslationLanguage(language);
+    notifyListeners();
+  }
+
+  Future<void> setLanguageEnabled(TranslationLanguage language, bool enabled) async {
+    final updated = Set<TranslationLanguage>.from(_enabledTranslationLanguages);
+    if (enabled) {
+      updated.add(language);
+    } else {
+      updated.remove(language);
+    }
+    // Always keep at least one language enabled so the quick-translate row
+    // is never empty.
+    if (updated.isEmpty) return;
+
+    _enabledTranslationLanguages = updated;
+    await _settingsService.writeEnabledTranslationLanguages(updated);
+
+    if (_defaultTranslationLanguage != null && !updated.contains(_defaultTranslationLanguage)) {
+      await setDefaultTranslationLanguage(null);
+      return; // setDefaultTranslationLanguage already calls notifyListeners()
+    }
     notifyListeners();
   }
 }
